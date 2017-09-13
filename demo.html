@@ -1,0 +1,312 @@
+<!doctype html>
+<html>
+  <head>
+    <title>SigSocket Demo</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font: 13px Helvetica, Arial; }
+      #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages li { padding: 5px 10px; }
+      #messages li:nth-child(odd) { background: #eee; }
+      .toolbar {position: fixed;
+          top: 0;
+              background: #fff;
+                  width: 100%;
+                      padding: 10px;
+                      }
+      .msg {margin-top: 100px;}
+
+      .video_view {
+            float:left;
+            width:420px;
+            height:236px;
+            display:inline-block;
+      };
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+    <table>
+        <tr>
+            <td> <button id="btnLogin">Login</button> </td>
+            <td> <input id="txtAccount1" value="xxx"> </td>
+            <td> <button id="btnSwitch">Switch</button> </td>
+        </tr>
+
+        <tr>
+            <td> <button id="btnCall">Call</button> </td>
+            <td> <input id="txtAccount2" value="yyy"> </td>
+            <td> <button id="btnInstMsg">InstMsg</button> </td>
+        </tr>
+
+        <tr>
+            <td> <button id="btnJoin">Join</button> </td>
+            <td> <input id="txtChannel" value="demoroom1"> </td>
+            <td> <button id="btnMsg">Msg</button> </td>
+        </tr>
+
+        <tr>
+            <td> </td>
+            <td> <input id="m" value="" autocomplete="off"> </td>
+            <td> </td>
+        </tr>
+
+    </table>
+    </div>
+
+    <div class="msg">
+         <ul id="messages"></ul>
+    </div>
+
+    <script src="sigsocket.js"></script>
+    <script src="jquery.js"></script>
+
+    <script>
+        $('#btnLogin').on("click", function(){
+            var b = $('#btnLogin');
+            if (b.text()=='Login'){
+                b.text('Logout');
+                do_login();
+            }else{
+                b.text('Login');
+                do_logout();
+            }
+        });
+
+        $('#btnCall').on("click", function(){
+            var b = $('#btnCall');
+            if (b.text()=='Call'){
+                b.text('End');
+                do_call();
+                check_join();
+            }else{
+                b.text('Call');
+                do_end();
+            }
+        });
+
+        var check_join = function(channelName){
+            if (!channelName){
+                channelName = $('#txtChannel').val();
+            }else{
+                $('#txtChannel').val( channelName );
+            }
+
+            var b = $('#btnJoin');
+            if (b.text()=='Join'){
+                b.text('Leave');
+                do_join( channelName );
+            }
+        }
+
+        var check_leave = function(){
+            var b = $('#btnJoin');
+            if (b.text()!='Join'){
+                b.text('Join');
+                do_leave();
+            }
+        }
+
+        $('#btnJoin').on("click", function(){
+            var b = $('#btnJoin');
+            if (b.text()=='Join'){
+                b.text('Leave');
+                do_join( $('#txtChannel').val() );
+            }else{
+                b.text('Join');
+                do_leave();
+            }
+        });
+
+        $('#btnSwitch').on("click", function(){
+            var v1 = $('#txtAccount1').val();
+            var v2 = $('#txtAccount2').val();
+
+            $('#txtAccount1').val( v2 );
+            $('#txtAccount2').val( v1 );
+        });
+
+        $('#btnInstMsg').on("click", function(){
+            var peer = $('#txtAccount2').val();
+            session.messageInstantSend(peer, 'hello world' + count++);
+        });
+
+        $('#btnMsg').on("click", function(){
+            var peer = $('#txtAccount2').val();
+            var msg = $('#m').val();
+            if (msg==''){
+                msg = 'hello world ' + count++;
+            }
+
+            channel.messageChannelSend( msg );
+        });
+
+        var signal = Signal("ws://125.88.159.174:9000/");
+        var session;
+        var channel;
+        var call ;
+        var g_uid;
+
+        var log = function(m){
+            console.log(m);
+            $('#messages').append($('<li>').text(m));
+            document.body.scrollTop = 1000 * 1000 * 1000;
+        };
+
+        var do_login = function(){
+            session = signal.login($('#txtAccount1').val(), '');
+            //session.dbg = true;
+            session.onLoginSuccess = function(uid){
+                log('login success ' + uid);
+                g_uid = uid;
+            };
+
+            session.onLoginFailed = function(ecode){
+                log('login failed ' + ecode);
+
+                $('#btnLogin').text('Login');
+            };
+
+            session.onLogout = function(ecode){
+                log('logouted ' + ecode);
+                $('#btnLogin').text('Login');
+                $('#btnJoin').text('Join');
+                $('#btnCall').text('Call');
+
+                do_leave();
+            };
+
+            session.onMessageInstantReceive = function(account, uid, msg){
+                log('recv inst msg from ' + account + ' : ' + msg);
+            };
+
+            session.onInviteReceived = function(call){
+                log('recv inst msg from ' + call.peer + ', ' + call.channelName + ', ' + call.extra);
+
+                $('#btnCall').text('End');
+
+                init_call(call);
+
+                check_join( call.channelName );
+            };
+
+        };
+
+        var do_logout = function(){
+            session.logout();
+        };
+
+        var init_call = function(call){
+            call.onInviteReceivedByPeer = function(extra){
+                log('call.onInviteReceivedByPeer ' + extra);
+            }
+
+            call.onInviteAcceptedByPeer = function(extra){
+                log('call.onInviteAcceptedByPeer ' + extra);
+            }
+
+            call.onInviteRefusedByPeer = function(extra){
+                log('call.onInviteRefusedByPeer ' + extra);
+                clear_call();
+            }
+
+            call.onInviteFailed = function(extra){
+                log('call.onInviteRefusedByPeer ' + extra);
+                clear_call();
+            }
+
+            call.onInviteEndByPeer = function(extra){
+                log('call.onInviteEndByPeer ' + extra);
+                clear_call();
+            }
+
+            call.onInviteEndByMyself = function(extra){
+                log('call.onInviteEndByMyself ' + extra);
+                clear_call();
+            }
+
+            call.onInviteMsg = function(extra){
+                log('call.onInviteMsg ' + extra);
+            }
+
+
+        }
+
+        var clear_call = function(){
+            $('#btnCall').text('Call');
+            check_leave();
+        }
+
+        var do_call = function(){
+            var channelName = $('#txtChannel').val();
+            var peer = $('#txtAccount2').val();
+
+
+            log('call ' + peer + ' , channelName : ' + channelName + ', extra : ' + JSON.stringify({hi:'from web'}) );
+
+            call = session.channelInviteUser2 ( channelName , peer, JSON.stringify({hi:'from web'}));
+            init_call(call);
+        };
+
+        var do_end = function(){
+            log('End call');
+            call.channelInviteEnd();
+        };
+
+        var do_join = function(name){
+            log('Joining channel ' +  name);
+
+            channel = session.channelJoin(name);
+            channel.onChannelJoined = function(){
+                log('channel.onChannelJoined');
+            };
+
+            channel.onChannelJoinFailed = function(ecode){
+                log('channel.onChannelJoinFailed', ecode);
+            };
+
+            channel.onChannelLeaved = function(ecode){
+                log('channel.onChannelLeaved');
+            };
+
+            channel.onChannelUserJoined = function(account, uid){
+                log('channel.onChannelUserJoined ' +  account + ' ' + uid);
+            };
+
+            channel.onChannelUserLeaved = function(account, uid){
+                log('channel.onChannelUserLeaved ' + account + ' ' + uid);
+            };
+
+            channel.onChannelUserList = function(users){
+                log('channel.onChannelUserList ' + users);
+            };
+
+            channel.onChannelAttrUpdated = function(type, k, v){
+                log('channel.onChannelAttrUpdated ' +  type + ' ' +  k + ' ' + v);
+            };
+
+            channel.onMessageChannelReceive = function(account, uid, msg){
+                log('channel.onMessageChannelReceive ' + account + ' ' + uid + ' : ' + msg);
+            };
+
+        };
+
+
+        var do_leave = function(){
+            if(channel) {
+              channel.channelLeave();
+            }
+
+        };
+
+        var count = 0;
+        $('form').submit(function(){
+                channel.messageChannelSend($('#m').val());
+                channel.channelSetAttr('hello', count++);
+                $('#m').val('');
+                return false;
+                });
+
+    </script>
+  </body>
+</html>
