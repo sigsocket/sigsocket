@@ -210,13 +210,9 @@ class ServerSSL(object):
 
 def demo_server(PORT=8080):
     def x():
-        import http.server
-        import socketserver
+        import os
+        os.system('cd web; python3 -m http.server 8080')
 
-        Handler = http.server.SimpleHTTPRequestHandler
-        with socketserver.TCPServer(("", PORT), Handler) as httpd:
-            print("HTTP serving at port", PORT)
-            httpd.serve_forever()
     import threading
     threading.Thread(target=x).start()
 
@@ -232,5 +228,5 @@ if __name__ == '__main__':
         server.close()
         serverSSL.close()
         import os
-        os._exit()
+        os._exit(-1)
 
