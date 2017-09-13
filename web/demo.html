@@ -141,7 +141,7 @@
             channel.messageChannelSend( msg );
         });
 
-        var signal = Signal("ws://125.88.159.174:9000/");
+        var signal = Signal("ws://" + document.location.hostname + ":9000/");
         var session;
         var channel;
         var call ;
