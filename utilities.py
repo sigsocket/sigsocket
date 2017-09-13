@@ -387,7 +387,7 @@ class User(object):
             name (str): The channel's name.
         """
         if user.channel :
-            user.channel_leave(user, name)
+            channel_leave(user, name)
 
         user.channel = name
         channel = get_channel_by_vid_name( user.vid, name)
