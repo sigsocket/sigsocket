@@ -208,15 +208,29 @@ class ServerSSL(object):
     def close(self):
         self.server.close()
 
+def demo_server(PORT=8080):
+    def x():
+        import http.server
+        import socketserver
+
+        Handler = http.server.SimpleHTTPRequestHandler
+        with socketserver.TCPServer(("", PORT), Handler) as httpd:
+            print("HTTP serving at port", PORT)
+            httpd.serve_forever()
+    import threading
+    threading.Thread(target=x).start()
 
 if __name__ == '__main__':
     server = Server()
     serverSSL = ServerSSL()
 
     try:
+        demo_server()
         asyncio.get_event_loop().run_forever()
     except KeyboardInterrupt:
         asyncio.get_event_loop().close()
         server.close()
         serverSSL.close()
+        import os
+        os._exit()
 
