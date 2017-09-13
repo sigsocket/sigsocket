@@ -224,9 +224,6 @@ if __name__ == '__main__':
         demo_server()
         asyncio.get_event_loop().run_forever()
     except KeyboardInterrupt:
-        asyncio.get_event_loop().close()
-        server.close()
-        serverSSL.close()
         import os
         os._exit(-1)
 
